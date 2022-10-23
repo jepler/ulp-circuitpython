@@ -32,15 +32,17 @@ LDFLAGS += -Wl,-T,link.ld
 
 .PHONY: default
 default: a.out-stripped
+	py/minidump.py
+
 a.out-stripped: a.out
 	$(STRIP) -g -o $@ $<
 
-a.out: $(SRCS) | link.ld Makefile
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+a.out: $(SRCS) link.ld Makefile
+	$(CC) $(CFLAGS) $(SRCS) -o $@ $(LDFLAGS)
 
 .PHONY: clean
 clean:
 	rm -f a.out* link.ld
 
-link.ld: ulp.riscv.ld
+link.ld: ulp.riscv.ld Makefile
 	$(CC) -E -P -xc $(CFLAGS) -o $@ $<
