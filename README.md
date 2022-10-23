@@ -16,11 +16,19 @@ The code here builds towards addressing these problems.
 make
 ```
 
+This builds `a.out-stripped`, which contains enough information for minidump.
+
 ## Running Minidump
 
 ```
-py/minidump.py
+$ py/minidump.py 
+@0000: Load 2906 bytes starting at 4096
+shared_mem @ 0x0b7c 0x0400 bytes
 ```
+
+This shows the amount of code (& initialized data) to be loaded from a.out-stripped, and at what offset within a.out-stripped that data comes.
+
+Then, it shows the size and offset in ULP memory of the symbol `shared_mem`.
 
 ## Using
 In principle, you now use a wrapper around `minielf` to (A) load the Coproc
