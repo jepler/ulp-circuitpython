@@ -7,9 +7,13 @@
 #include "ulp_riscv/ulp_riscv_utils.h"
 #include "ulp_riscv/ulp_riscv_gpio.h"
 
+#define EXPORT __attribute__((used,visibility("default")))
 // global variables will be exported as public symbols, visible from main CPU
-__attribute__((used)) uint8_t shared_mem[1024];
-__attribute__((used)) uint16_t shared_mem_len = 1024;
+EXPORT uint8_t shared_mem[1024];
+EXPORT uint16_t shared_mem_len = 1024;
+
+#undef ULP_RISCV_CYCLES_PER_MS
+#define ULP_RISCV_CYCLES_PER_MS (int)(1000*ULP_RISCV_CYCLES_PER_US)
 
 int main (void) {
     shared_mem[0] = 10;

@@ -7,7 +7,8 @@ SOC := esp32s3
 CROSS := riscv32-esp-elf-
 CC := $(CROSS)gcc
 STRIP := $(CROSS)strip
-CFLAGS := -Os -march=rv32imc -mdiv -fdata-sections -ffunction-sections
+CFLAGS := -g -Os -march=rv32imc -mdiv -fdata-sections -ffunction-sections
+#CFLAGS += -fvisibility=hidden
 CFLAGS += -isystem $(IDF_PATH)/components/ulp/ulp_riscv/include/
 CFLAGS += -isystem $(IDF_PATH)/components/soc/$(SOC)/include
 CFLAGS += -isystem $(IDF_PATH)/components/esp_common/include
@@ -18,11 +19,15 @@ endif
 ifeq ($(SOC),esp32s2)
 CFLAGS += -DCONFIG_IDF_TARGET_ESP32S2
 endif
-LDFLAGS := -march=rv32imc --specs=nano.specs --specs=nosys.specs
+ifeq ($(origin USER_CFLAGS),undefined)
+CFLAGS += $(USER_CFLAGS)
+endif
+LDFLAGS := -Wl,-A,elf32-esp32s2ulp -nostdlib --specs=nano.specs --specs=nosys.specs -Wl,--gc-sections
 
 SRCS ?= ulp.c
 SRCS += $(IDF_PATH)/components/ulp/ulp_riscv/ulp_riscv_utils.c
-LDFLAGS += link.ld
+SRCS += $(IDF_PATH)/components/ulp/ulp_riscv/start.S
+LDFLAGS += -Wl,-T,link.ld
 
 
 .PHONY: default
@@ -30,8 +35,8 @@ default: a.out-stripped
 a.out-stripped: a.out
 	$(STRIP) -g -o $@ $<
 
-a.out: $(SRCS) link.ld
-	$(CC) -flto $(CFLAGS) $^ -o $@ $(LDFLAGS)
+a.out: $(SRCS) | link.ld Makefile
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 .PHONY: clean
 clean:
