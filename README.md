@@ -19,7 +19,7 @@ make
 ## Running Minidump
 
 ```
-python py/minidump.py
+py/minidump.py
 ```
 
 ## Using

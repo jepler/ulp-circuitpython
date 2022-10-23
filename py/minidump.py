@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from minielf import ELFFile, PT_LOAD
 
 a_out = open("a.out-stripped", "rb")
