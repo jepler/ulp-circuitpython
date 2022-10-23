@@ -29,9 +29,9 @@ class Section:
         self._header = sh
 
     def readat(self, offset, sz):
-        return self._elffile._readat(offset + self._header.sh_offset, sz)
+        return self._elffile.pread(offset + self._header.sh_offset, sz)
     def constructat(self, offset, cls):
-        return self._elffile._constructat(offset + self._header.sh_offset, cls)
+        return self._elffile.construct_at(offset + self._header.sh_offset, cls)
 
 class StringTable(Section):
     def symbolat(self, offset):
@@ -42,6 +42,15 @@ class StringTable(Section):
             result += c
         return result
 
+    def symbolat_matches(self, offset, name):
+        stream = self._elffile.stream
+        stream.seek(self._header.sh_offset + offset)
+        name1 = stream.read(len(name))
+        if name1 != name: return False
+        nul = stream.read(1)
+        if nul != b'\0': return False
+        return True
+        
 _SymbolTableEntry = namedtuple('_SymbolTableEntry',
         ['st_name', 'st_value', 'st_size', 'set_info', 'st_other', 'st_shndx'])
 
@@ -54,17 +63,22 @@ class Symbol:
         self.entry = entry
 
 class SymbolTable(Section):
+    def __init__(self, ef, sh):
+        super().__init__(ef, sh)
+        self.strtab = None
+
     def iter_symbols(self):
         for i in range(0, self._header.sh_size, SymbolTableEntry.calcsize()):
             yield self.constructat(i, SymbolTableEntry)
 
-    def get_symbol_by_name(self, name):
+    def get_first_symbol_by_name(self, name):
         if not isinstance(name, bytes): name = name.encode()
-        strs = self._elffile.get_section_by_name('.strtab')
+        if self.strtab is None:
+            self.strtab = self._elffile.get_section_by_name('.strtab')
+        strtab = self.strtab
         for sy in self.iter_symbols():
-            name2 = strs.symbolat(sy.st_name)
-            if name == name2:
-                return [Symbol(name, sy)]
+            if strtab.symbolat_matches(sy.st_name, name):
+                return Symbol(name, sy)
 
 
 section_constructors = {
@@ -84,13 +98,13 @@ class ELFFile:
     def __init__(self, stream):
         self.stream = stream
         self._buffer = ()
-        if self._readat(0, 4) != b'\177ELF':
+        if self.pread(0, 4) != b'\177ELF':
             raise ValueError("Not an ELF file")
-        if self._readat(4, 3) != b'\1\1\1':
+        if self.pread(4, 3) != b'\1\1\1':
             raise ValueError("Incompatible ELF file")
-        self._header = self._constructat(0, ElfHeader32)
+        self._header = self.construct_at(0, ElfHeader32)
 
-    def _readat(self, offset, sz):
+    def pread(self, offset, sz):
         if len(self._buffer) < sz:
             self._buffer = bytearray(sz)
             self._view = memoryview(self._buffer)
@@ -99,21 +113,16 @@ class ELFFile:
         self.stream.readinto(mv)
         return mv
 
-    def _decodeat(self, offset, fmt):
-        sz = struct.calcsize(fmt)
-        mb = self._readat(offset, sz)
-        return struct.unpack(fmt, mv)
-
-    def _constructat(self, offset, cls):
+    def construct_at(self, offset, cls):
         sz = cls.calcsize()
-        mb = self._readat(offset, sz)
+        mb = self.pread(offset, sz)
         return cls.frombuffer(mb)
 
     def get_section(self, index):
         if not (0 <= index < self._header.e_shnum):
             raise IndexError("Invalid section number")
         offset = self._header.e_shoff + index * self._header.e_shentsize
-        sh = self._constructat(offset, SectionHeader32)
+        sh = self.construct_at(offset, SectionHeader32)
         constructor = section_constructors.get(sh.sh_type, Section)
         return constructor(self, sh)
 
@@ -126,16 +135,20 @@ class ELFFile:
         idx = self.get_section(self._header.e_shstrndx)
         for sec in self.iter_sections():
             off = sec._header.sh_name
-            name2 = idx.symbolat(off)
-            if name == name2:
+            if idx.symbolat_matches(sec._header.sh_name, name):
                 return sec
 
     def get_header(self, index):
         if not (0 <= index < self._header.e_phnum):
             raise IndexError("Invalid header number")
         offset = self._header.e_phoff + index * self._header.e_phentsize
-        return self._constructat(offset, HeaderTableEntry)
+        return self.construct_at(offset, HeaderTableEntry)
 
     def iter_headers(self):
         for i in range(self._header.e_phnum):
             yield self.get_header(i)
+
+    def get_header_by_type(self, p_type):
+        for h in self.iter_headers():
+            if h.p_type == p_type:
+                return h
