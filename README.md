@@ -31,5 +31,18 @@ This shows the amount of code (& initialized data) to be loaded from a.out-strip
 Then, it shows the size and offset in ULP memory of the symbol `shared_mem`.
 
 ## Using
-In principle, you now use a wrapper around `minielf` to (A) load the Coproc
-binary and (B) to find symbols within the CoprocMemory.
+
+The demo is designed for the ESP32-S3-EYE board, which has an LED on GPIO3. You
+can potentially use a different LED location by editing `ulp.c` and changing
+the line `#define GPIO (GPIO_NUM_3)`.
+
+After you `make`, copy `a.out-stripped` and all the Python files in `py` to
+CIRCUITPY.  At the repl, `import do_coproc`. (by not saving this file as
+`code.py`, it is not automatically run at startup, which helps when dealing
+with hardfaults)
+
+The LED will blink at two alternating rates, "around 5Hz" and "around 2.5Hz".
+
+Note that as of 8.0.0-beta.3-31-gedce717cfc, hitting ctrl-c to interrupt the
+program & halt the coproc frequently causes the device to freeze, disconnect,
+or restart in safe mode.
