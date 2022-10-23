@@ -1,6 +1,12 @@
+ifeq ($(origin IDF_PATH),undefined)
+$(error You must "source esp-idf/export.sh" before building)
+endif
+
 COPROC_RESERVE_MEM ?= 8176
 SOC := esp32s3
-CC := riscv32-esp-elf-gcc
+CROSS := riscv32-esp-elf-
+CC := $(CROSS)gcc
+STRIP := $(CROSS)strip
 CFLAGS := -Os -march=rv32imc -mdiv -fdata-sections -ffunction-sections
 CFLAGS += -isystem $(IDF_PATH)/components/ulp/ulp_riscv/include/
 CFLAGS += -isystem $(IDF_PATH)/components/soc/$(SOC)/include
@@ -20,13 +26,16 @@ LDFLAGS += link.ld
 
 
 .PHONY: default
-default: a.out
+default: a.out-stripped
+a.out-stripped: a.out
+	$(STRIP) -g -o $@ $<
+
 a.out: $(SRCS) link.ld
 	$(CC) -flto $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 .PHONY: clean
 clean:
-	rm -f a.out link.ld
+	rm -f a.out* link.ld
 
 link.ld: ulp.riscv.ld
 	$(CC) -E -P -xc $(CFLAGS) -o $@ $<
